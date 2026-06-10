@@ -38,3 +38,5 @@ tests/t/*.trs
 tests/test-suite.log
 build.log
 configure.log
+compile_commands.json
+.cache/
