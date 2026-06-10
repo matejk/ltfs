@@ -460,6 +460,13 @@ int ltfs_fsops_unlink(const char *path, ltfs_file_id *id, struct ltfs_volume *vo
 	}
 	parent = d->parent;
 
+	/* Acquire parent->meta_lock up front: the shared out: path releases it
+	 * via fs_release_dentry_unlocked(), so every goto out (including the WORM
+	 * and non-empty-directory error paths below) must hold it. Ordering is
+	 * preserved: parent->contents_lock (held by fs_path_lookup) before
+	 * parent->meta_lock before the child d->meta_lock. */
+	acquirewrite_mrsw(&parent->meta_lock);
+
 	if (parent->is_immutable || parent->is_appendonly) {
 		ltfsmsg(LTFS_ERR, 17237E, "unlink: parent is WORM");
 		ret = -LTFS_WORM_ENABLED;
@@ -482,7 +489,6 @@ int ltfs_fsops_unlink(const char *path, ltfs_file_id *id, struct ltfs_volume *vo
 			goto out;
 	}
 
-	acquirewrite_mrsw(&parent->meta_lock);
 	acquirewrite_mrsw(&d->meta_lock);
 
 	if (dcache_initialized(vol)) {
