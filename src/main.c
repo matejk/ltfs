@@ -140,6 +140,8 @@ static struct fuse_opt ltfs_options[] = {
 	LTFS_OPT("symlink_type=%s",        symlink_str, 0),
 	LTFS_OPT("scsi_append_only_mode=%s", str_append_only_mode, 0),
 	LTFS_OPT("max_write=%lu",          fuse_max_write, 0),
+	LTFS_OPT("direct_io",              direct_io, 1),
+	LTFS_OPT("nodirect_io",            direct_io, 0),
 	LTFS_OPT_KEY("-a",                 KEY_ADVANCED_HELP),
 	FUSE_OPT_KEY("-h",                 KEY_HELP),
 	FUSE_OPT_KEY("--help",             KEY_HELP),
@@ -179,6 +181,7 @@ void single_drive_advanced_usage(const char *default_driver, struct ltfs_fuse_da
 	ltfsresult(14456I); /* -o capture_index */
 	ltfsresult(14463I); /* -o scsi_append_only_mode=<on|off> */
 	ltfsresult(14469I); /* -o max_write=<num> */
+	ltfsresult(14470I); /* -o direct_io */
 	ltfsresult(14406I); /* -a */
 	/* TODO: future use for WORM */
 	/* set worm rollback flag and rollback_str by this option */

@@ -104,6 +104,31 @@ static struct fuse_context *context;
 int ltfs_fuse_fgetattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi);
 int ltfs_fuse_ftruncate(const char *path, off_t length, struct fuse_file_info *fi);
 
+#if !defined(__APPLE__) && FUSE_VERSION > 27
+/* Per-open cache policy. With -o direct_io every read and write bypasses
+ * the kernel page cache: requests arrive at the application's I/O size
+ * (up to the negotiated maximum) and stream straight to the daemon, at
+ * the cost of mmap support and kernel readahead. Otherwise the page
+ * cache is used and kept across opens (the daemon is the only writer).
+ * keep_cache must never be set while another open of the same file uses
+ * direct_io; the policy is mount-wide, so the modes cannot mix. */
+static void _ltfs_fuse_set_cache_flags(struct fuse_file_info *fi, struct ltfs_fuse_data *priv)
+{
+	if (priv->direct_io) {
+		fi->direct_io = 1;
+		fi->keep_cache = 0;
+#if defined(HAVE_FUSE3) && FUSE_VERSION >= FUSE_MAKE_VERSION(3, 14)
+		/* Writes are serialized further down; this only removes the
+		 * kernel-side exclusive lock for non-extending direct writes. */
+		fi->parallel_direct_writes = 1;
+#endif
+	} else {
+		fi->direct_io = 0;
+		fi->keep_cache = 1;
+	}
+}
+#endif
+
 struct ltfs_file_handle *_new_ltfs_file_handle(struct file_info *fi)
 {
 	int ret;
@@ -442,10 +467,7 @@ int ltfs_fuse_open(const char *path, struct fuse_file_info *fi)
 		fi->direct_io = 1;
 	fi->keep_cache = 0;
 #else
-	/* cannot set keep cache if any process has the file open with direct_io set! so only
-	 * set it on newer FUSE versions, where we don't use direct_io. */
-	fi->direct_io = 0;
-	fi->keep_cache = 1;
+	_ltfs_fuse_set_cache_flags(fi, priv);
 #endif
 #endif
 
@@ -757,10 +779,7 @@ int ltfs_fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 	fi->direct_io = 1;
 	fi->keep_cache = 0;
 #else
-	/* cannot set keep cache if any process has the file open with direct_io set! so only
-	 * set it on newer FUSE versions, where we don't use direct_io. */
-	fi->direct_io = 0;
-	fi->keep_cache = 1;
+	_ltfs_fuse_set_cache_flags(fi, priv);
 #endif
 #endif
 

@@ -247,5 +247,6 @@ root:table {
 		14467I:string { "    -o syslogtrace            Enable diagnostic output to stderr and syslog(same as verbose=303)" }
 		// Reserved 14468I
 		14469I:string { "    -o max_write=<num>        Maximum size of a FUSE request in bytes (FUSE 3 builds only, default: 1048576)" }
+		14470I:string { "    -o direct_io              Bypass the kernel page cache for all file I/O (disables mmap)" }
 	}
 }

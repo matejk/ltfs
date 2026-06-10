@@ -27,7 +27,8 @@ TESTS = \
 	t/07-large-dir.sh \
 	t/08-tar-roundtrip.sh \
 	t/09-rename-flags-ftruncate.sh \
-	t/10-request-size.sh
+	t/10-request-size.sh \
+	t/11-direct-io.sh
 
 EXTRA_DIST = \
 	lib/harness.sh \
