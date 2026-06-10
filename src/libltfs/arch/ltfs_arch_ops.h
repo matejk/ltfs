@@ -151,7 +151,10 @@ extern "C" {
 
     #define arch_sscanf     sscanf
 
-    #define arch_open( descriptor_ptr, filename_ptr, open_flg, share_flg, unused) do{ *descriptor_ptr = open(filename_ptr, open_flg, share_flg); }while(0)
+    /* Share flags are a Windows concept; on POSIX the permission argument
+     * is the mode passed to open(2). Passing the share flag as the mode
+     * created write-only (0200) files, unreadable for non-root users. */
+    #define arch_open( descriptor_ptr, filename_ptr, open_flg, share_flg, perm) do{ *descriptor_ptr = open(filename_ptr, open_flg, perm); }while(0)
 
     #define arch_fopen(file, mode, file_ptr)  do {file_ptr = fopen(file, mode);}while(0)
 
