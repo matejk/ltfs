@@ -13,6 +13,9 @@ AM_TESTS_ENVIRONMENT = \
 	top_builddir='$(abs_top_builddir)' top_srcdir='$(abs_top_srcdir)'; \
 	export top_builddir top_srcdir;
 
+check_PROGRAMS = helpers/fsops_helper
+helpers_fsops_helper_SOURCES = helpers/fsops_helper.c
+
 TESTS = \
 	t/00-mount-umount.sh \
 	t/01-io-roundtrip.sh \
@@ -22,7 +25,8 @@ TESTS = \
 	t/05-xattr.sh \
 	t/06-symlink.sh \
 	t/07-large-dir.sh \
-	t/08-tar-roundtrip.sh
+	t/08-tar-roundtrip.sh \
+	t/09-rename-flags-ftruncate.sh
 
 EXTRA_DIST = \
 	lib/harness.sh \

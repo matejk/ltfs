@@ -157,6 +157,11 @@ ltfs_finish() {
 	ltfs_fsck
 }
 
+# ltfs_is_fuse3: true when the ltfs binary is linked against libfuse 3.
+ltfs_is_fuse3() {
+	ldd "$top_builddir/src/.libs/ltfs" 2>/dev/null | grep -q libfuse3
+}
+
 # ltfs_remount: unmount and mount again (e.g. to verify persistence).
 ltfs_remount() {
 	ltfs_umount
