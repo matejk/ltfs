@@ -29,7 +29,8 @@ TESTS = \
 	t/09-rename-flags-ftruncate.sh \
 	t/10-request-size.sh \
 	t/11-direct-io.sh \
-	t/12-readdirplus.sh
+	t/12-readdirplus.sh \
+	t/13-large-write-integrity.sh
 
 EXTRA_DIST = \
 	lib/harness.sh \
