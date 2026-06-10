@@ -646,18 +646,9 @@ int ltfs_fsops_rename(const char *from, const char *to, ltfs_file_id *id, struct
 		goto out_release;
 	}
 
-	if (fromdir->is_appendonly || fromdir->is_immutable ) {
-		ltfsmsg(LTFS_ERR, 17237E, "rename: parent is WORM");
-		ret = -LTFS_WORM_ENABLED;
-		acquirewrite_mrsw(&fromdir->meta_lock);
-		goto out_release;
-	}
-	if (todir->is_immutable || todir->is_appendonly) {
-		ltfsmsg(LTFS_ERR, 17237E, "rename: target dir is WORM");
-		ret = -LTFS_WORM_ENABLED;
-		acquirewrite_mrsw(&fromdir->meta_lock);
-		goto out_release;
-	}
+	/* The WORM state of the source and target directories is checked below,
+	 * after both directory meta_locks are held (the fields are meta_lock
+	 * protected, and the out_release path expects both meta_locks held). */
 
 	/* Take locks in the appropriate order and look up the source and destination dentries */
 	if (todir == fromdir || fs_is_predecessor(todir, fromdir)) {
@@ -765,6 +756,20 @@ int ltfs_fsops_rename(const char *from, const char *to, ltfs_file_id *id, struct
 		goto out_unlock;
 	}
 #endif
+
+	/* Reject renames into or out of a WORM directory. Checked here, with both
+	 * directory meta_locks held, rather than right after lookup: the fields are
+	 * meta_lock protected and the out_unlock/out_release path releases both
+	 * directory meta_locks via fs_release_dentry_unlocked. */
+	if (fromdir->is_immutable || fromdir->is_appendonly ||
+		todir->is_immutable || todir->is_appendonly) {
+		ltfsmsg(LTFS_ERR, 17237E, "rename: source or target dir is WORM");
+		ret = -LTFS_WORM_ENABLED;
+		fs_release_dentry(fromdentry);
+		if (todentry && todentry != fromdentry)
+			fs_release_dentry(todentry);
+		goto out_unlock;
+	}
 
 	if (fromdentry->is_immutable || fromdentry->is_appendonly) {
 		ltfsmsg(LTFS_ERR, 17237E, "rename: src entry is WORM");
