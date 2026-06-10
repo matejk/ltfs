@@ -286,7 +286,33 @@ fi
 dnl
 dnl Check for FUSE, libuuid, and libxml2
 dnl
-PKG_CHECK_MODULES([FUSE_MODULE], [fuse >= 2.6.0])
+dnl libfuse 3 is the default on Linux. --with-fuse2 selects the legacy
+dnl libfuse 2 API; it is also the default on the other platforms until
+dnl their fuse3 stacks are verified.
+dnl
+AC_MSG_CHECKING([whether to build against libfuse 2])
+AC_ARG_WITH([fuse2],
+    [AS_HELP_STRING([--with-fuse2],
+        [build against libfuse 2 instead of libfuse 3])],
+    [with_fuse2=$withval],
+    [with_fuse2=default])
+if test "x${with_fuse2}" = "xdefault"
+then
+    if test "x${host_linux}" = "xyes"
+    then
+        with_fuse2=no
+    else
+        with_fuse2=yes
+    fi
+fi
+AC_MSG_RESULT([$with_fuse2])
+
+if test "x${with_fuse2}" = "xyes"
+then
+    PKG_CHECK_MODULES([FUSE_MODULE], [fuse >= 2.6.0])
+else
+    PKG_CHECK_MODULES([FUSE_MODULE], [fuse3 >= 3.4.0])
+fi
 PKG_CHECK_MODULES([LIBXML2_MODULE], [libxml-2.0 >= 2.6.16])
 
 if test "x${host_mac}" = "xyes"
@@ -458,6 +484,10 @@ dnl Update flags
 dnl Sets CFLAGS to force optimization and debugging options, which isn't quite kosher
 dnl
 AM_CPPFLAGS="-D_GNU_SOURCE -I\$(top_srcdir)/src -DLTFS_CONFIG_FILE='\"${sysconfdir}/ltfs.conf\"' -DLTFS_BASE_DIR='\"${prefix}\"'"
+if test "x${with_fuse2}" != "xyes"
+then
+    AM_CPPFLAGS="${AM_CPPFLAGS} -DHAVE_FUSE3"
+fi
 AM_CFLAGS="-Wall -Wsign-compare -fsigned-char ${FUSE_MODULE_CFLAGS} ${UUID_MODULE_CFLAGS} ${LIBXML2_MODULE_CFLAGS} ${ICU_MODULE_CFLAGS} ${SNMP_ENABLE} ${SNMP_MODULE_CFLAGS}"
 
 if test "x$use_fast" = "xyes"
