@@ -566,8 +566,15 @@ static int _xml_parse_ip_criteria(xmlTextReaderPtr reader, struct ltfs_index *id
 
 			++num_patterns;
 			/* quite inefficient, but the number of patterns should be small. */
-			idx->original_criteria.glob_patterns = realloc(idx->original_criteria.glob_patterns,
-														   (num_patterns + 1) * sizeof(struct ltfs_name));
+			{
+				struct ltfs_name *new_patterns = realloc(idx->original_criteria.glob_patterns,
+														 (num_patterns + 1) * sizeof(struct ltfs_name));
+				if (! new_patterns) {
+					ltfsmsg(LTFS_ERR, 10001E, "_xml_parse_ip_criteria: glob_patterns");
+					return -LTFS_NO_MEMORY;
+				}
+				idx->original_criteria.glob_patterns = new_patterns;
+			}
 
 			if (_xml_parse_nametype(reader,
 									&idx->original_criteria.glob_patterns[num_patterns - 1],
