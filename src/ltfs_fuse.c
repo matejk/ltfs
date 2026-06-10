@@ -1168,6 +1168,12 @@ void * ltfs_fuse_mount(struct fuse_conn_info *conn)
 	/* Tape reads must stay ordered; FUSE 3 enables asynchronous reads by
 	 * default (the -o sync_read mount option was removed). */
 	conn->want &= ~FUSE_CAP_ASYNC_READ;
+
+	/* Request sizes up to max_write (libfuse >= 3.6 negotiates the
+	 * matching max_pages with the kernel). Read requests are bounded by
+	 * the same page limit. */
+	conn->max_write = priv->fuse_max_write;
+	ltfsmsg(LTFS_INFO, 14124I, (unsigned int)(conn->max_write / 1024));
 #endif
 
 	if (priv->pid_orig != getpid()) {
