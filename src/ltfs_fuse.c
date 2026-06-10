@@ -962,6 +962,56 @@ int _ltfs_fuse_filldir(void *buf, const char *name, void *priv)
 }
 
 #ifdef HAVE_FUSE3
+/* Context for _ltfs_fuse_filldir_plus */
+struct ltfs_fuse_fill_plus {
+	fuse_fill_dir_t filler;
+	struct ltfs_fuse_data *priv;
+};
+
+/* readdirplus filler: hand the entry's attributes to the kernel so it can
+ * prefill its inode cache and no getattr round trip is needed per entry. */
+static int _ltfs_fuse_filldir_plus(void *buf, const char *name,
+	const struct dentry_attr *attr, void *vpriv)
+{
+	struct ltfs_fuse_fill_plus *fill = vpriv;
+	struct stat st;
+	char *new_name;
+	int ret;
+
+	if (! attr)
+		return _ltfs_fuse_filldir(buf, name, fill->filler);
+
+	memset(&st, 0, sizeof(st));
+	_ltfs_fuse_attr_to_stat(&st, (struct dentry_attr *)attr, fill->priv);
+
+	ret = pathname_unformat(name, &new_name);
+	if (ret < 0) {
+		ltfsmsg(LTFS_ERR, 14027E, "unformat", ret);
+		return ret;
+	}
+
+#ifdef __APPLE__
+	free(new_name);
+
+	ret = pathname_nfd_normalize(name, &new_name);
+	if (ret < 0) {
+		ltfsmsg(LTFS_ERR, 14027E, "nfd", ret);
+		return ret;
+	}
+
+	ret = fill->filler(buf, new_name, &st, 0, FUSE_FILL_DIR_PLUS);
+#else
+	ret = fill->filler(buf, name, &st, 0, FUSE_FILL_DIR_PLUS);
+#endif
+
+	free(new_name);
+	if (ret)
+		return -ENOBUFS;
+	return 0;
+}
+#endif /* HAVE_FUSE3 */
+
+#ifdef HAVE_FUSE3
 int ltfs_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
 #else
@@ -988,6 +1038,14 @@ int ltfs_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		return -ENOBUFS;
 	}
 
+#ifdef HAVE_FUSE3
+	if (flags & FUSE_READDIR_PLUS) {
+		struct ltfs_fuse_fill_plus fill = { .filler = filler, .priv = priv };
+
+		ret = ltfs_fsops_readdir_attr(file->file_info->dentry_handle, buf,
+									  _ltfs_fuse_filldir_plus, &fill, priv->data);
+	} else
+#endif
 	ret = ltfs_fsops_readdir(file->file_info->dentry_handle, buf, _ltfs_fuse_filldir,
 							 filler, priv->data);
 
@@ -1193,6 +1251,11 @@ void * ltfs_fuse_mount(struct fuse_conn_info *conn)
 	 * the same page limit. */
 	conn->max_write = priv->fuse_max_write;
 	ltfsmsg(LTFS_INFO, 14124I, (unsigned int)(conn->max_write / 1024));
+
+	/* Always use readdirplus, not only when the kernel heuristic asks
+	 * for it: attributes come from the in-memory index, so handing them
+	 * out with the listing is free and avoids a getattr per entry. */
+	conn->want &= ~FUSE_CAP_READDIRPLUS_AUTO;
 #endif
 
 	if (priv->pid_orig != getpid()) {
