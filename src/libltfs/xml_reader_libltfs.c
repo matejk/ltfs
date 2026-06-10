@@ -98,6 +98,10 @@ static int decode_entry_name(char **new_name, const char *name)
 	/* Always, length must be shorter than original but allocate null termination space */
 	len = strlen(name);
 	tmp_name = malloc((len * sizeof(UChar)) + 1);
+	if (! tmp_name) {
+		ltfsmsg(LTFS_ERR, 10001E, "decode_entry_name: tmp_name");
+		return -LTFS_NO_MEMORY;
+	}
 	buf_decode[2] = '\0';
 
 	while (i < len) {
