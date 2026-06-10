@@ -286,32 +286,38 @@ fi
 dnl
 dnl Check for FUSE, libuuid, and libxml2
 dnl
-dnl libfuse 3 is the default on Linux. --with-fuse2 selects the legacy
-dnl libfuse 2 API; it is also the default on the other platforms until
-dnl their fuse3 stacks are verified.
+dnl libfuse 3 is preferred on Linux, falling back to libfuse 2 when the
+dnl fuse3 development files are not installed. --with-fuse2 forces the
+dnl legacy libfuse 2 API; it is also the default on the other platforms
+dnl until their fuse3 stacks are verified.
 dnl
-AC_MSG_CHECKING([whether to build against libfuse 2])
 AC_ARG_WITH([fuse2],
     [AS_HELP_STRING([--with-fuse2],
         [build against libfuse 2 instead of libfuse 3])],
     [with_fuse2=$withval],
     [with_fuse2=default])
-if test "x${with_fuse2}" = "xdefault"
+if test "x${with_fuse2}" = "xdefault" && test "x${host_linux}" != "xyes"
 then
-    if test "x${host_linux}" = "xyes"
-    then
-        with_fuse2=no
-    else
-        with_fuse2=yes
-    fi
+    with_fuse2=yes
 fi
-AC_MSG_RESULT([$with_fuse2])
 
 if test "x${with_fuse2}" = "xyes"
 then
     PKG_CHECK_MODULES([FUSE_MODULE], [fuse >= 2.6.0])
-else
+elif test "x${with_fuse2}" = "xno"
+then
     PKG_CHECK_MODULES([FUSE_MODULE], [fuse3 >= 3.4.0])
+else
+    PKG_CHECK_MODULES([FUSE_MODULE], [fuse3 >= 3.4.0],
+        [with_fuse2=no],
+        [PKG_CHECK_MODULES([FUSE_MODULE], [fuse >= 2.6.0], [with_fuse2=yes])])
+fi
+AC_MSG_CHECKING([for the FUSE API version to use])
+if test "x${with_fuse2}" = "xyes"
+then
+    AC_MSG_RESULT([2])
+else
+    AC_MSG_RESULT([3])
 fi
 PKG_CHECK_MODULES([LIBXML2_MODULE], [libxml-2.0 >= 2.6.16])
 
