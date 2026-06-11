@@ -40,3 +40,7 @@ build.log
 configure.log
 compile_commands.json
 .cache/
+# CMake build trees
+build-cmake/
+build-fuse2/
+build*/

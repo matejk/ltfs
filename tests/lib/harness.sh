@@ -76,15 +76,30 @@ ltfs_cleanup() {
 	exit "$status"
 }
 
+# Locate a built plugin .so, accepting both the autotools (libtool .libs/)
+# and the CMake (plain subdir) layouts.
+_find_plugin() {
+	subdir=$1
+	base=$2
+	for cand in \
+		"$top_builddir/src/$subdir/.libs/$base.so" \
+		"$top_builddir/src/$subdir/$base.so"; do
+		if [ -f "$cand" ]; then
+			echo "$cand"
+			return 0
+		fi
+	done
+	fail "plugin $base.so not found under $top_builddir/src/$subdir"
+}
+
 # Generate an ltfs.conf pointing at the plugins in the build tree.
 _write_config() {
-	plugdir="$top_builddir/src"
 	cat >"$WORK/ltfs.conf" <<EOF
-plugin tape file $plugdir/tape_drivers/generic/file/.libs/libtape-file.so
-plugin iosched unified $plugdir/iosched/.libs/libiosched-unified.so
-plugin iosched fcfs $plugdir/iosched/.libs/libiosched-fcfs.so
-plugin kmi flatfile $plugdir/kmi/.libs/libkmi-flatfile.so
-plugin kmi simple $plugdir/kmi/.libs/libkmi-simple.so
+plugin tape file $(_find_plugin tape_drivers/generic/file libtape-file)
+plugin iosched unified $(_find_plugin iosched libiosched-unified)
+plugin iosched fcfs $(_find_plugin iosched libiosched-fcfs)
+plugin kmi flatfile $(_find_plugin kmi libkmi-flatfile)
+plugin kmi simple $(_find_plugin kmi libkmi-simple)
 default tape file
 default iosched unified
 default kmi none
@@ -159,7 +174,8 @@ ltfs_finish() {
 
 # ltfs_is_fuse3: true when the ltfs binary is linked against libfuse 3.
 ltfs_is_fuse3() {
-	ldd "$top_builddir/src/.libs/ltfs" 2>/dev/null | grep -q libfuse3
+	{ ldd "$LTFS_BIN" 2>/dev/null || ldd "$top_builddir/src/.libs/ltfs" 2>/dev/null; } \
+		| grep -q libfuse3
 }
 
 # ltfs_remount: unmount and mount again (e.g. to verify persistence).
