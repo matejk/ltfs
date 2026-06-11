@@ -117,7 +117,7 @@ static void _ltfs_fuse_set_cache_flags(struct fuse_file_info *fi, struct ltfs_fu
 	if (priv->direct_io) {
 		fi->direct_io = 1;
 		fi->keep_cache = 0;
-#if defined(HAVE_FUSE3) && FUSE_VERSION >= FUSE_MAKE_VERSION(3, 14)
+#ifdef HAVE_FUSE_PARALLEL_DIRECT_WRITES
 		/* Writes are serialized further down; this only removes the
 		 * kernel-side exclusive lock for non-extending direct writes. */
 		fi->parallel_direct_writes = 1;

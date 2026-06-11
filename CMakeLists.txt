@@ -99,6 +99,21 @@ else()
     message(STATUS "LTFS: building against FUSE 2 (${FUSE_VERSION})")
 endif()
 
+# struct fuse_file_info.parallel_direct_writes appeared in libfuse 3.15;
+# detect the member instead of relying on version numbers. It is a bitfield,
+# so sizeof-based probes (check_struct_has_member) cannot be used.
+if(LTFS_HAVE_FUSE3)
+    include(CheckCSourceCompiles)
+    set(CMAKE_REQUIRED_INCLUDES ${FUSE_INCLUDE_DIRS})
+    set(CMAKE_REQUIRED_DEFINITIONS -DFUSE_USE_VERSION=31)
+    check_c_source_compiles("
+#include <fuse.h>
+int main(void) { struct fuse_file_info fi = {0}; fi.parallel_direct_writes = 1; return 0; }"
+        HAVE_FUSE_PARALLEL_DIRECT_WRITES)
+    unset(CMAKE_REQUIRED_INCLUDES)
+    unset(CMAKE_REQUIRED_DEFINITIONS)
+endif()
+
 find_package(LibXml2 2.6.16 REQUIRED)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
