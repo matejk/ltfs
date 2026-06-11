@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get -q update && apt-get -q -y install --no-install-recommends \
-        build-essential automake autoconf libtool pkg-config \
+        build-essential automake autoconf libtool pkg-config cmake \
         icu-devtools libicu-dev libxml2-dev uuid-dev libsnmp-dev \
         libfuse-dev fuse3 libfuse3-dev \
         attr file procps util-linux tar \

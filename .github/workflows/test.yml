@@ -4,20 +4,17 @@ on: [push, pull_request]
 
 jobs:
   test:
-    name: Build and test (${{ matrix.fuse }})
+    name: ${{ matrix.build }} (${{ matrix.fuse }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - fuse: fuse3
-            configure_flags: ""
-          - fuse: fuse2
-            configure_flags: "--with-fuse2"
+        build: [autotools, cmake]
+        fuse: [fuse3, fuse2]
 
     steps:
       - name: Set up Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -25,16 +22,28 @@ jobs:
         run: |
           sudo apt-get -q update
           sudo apt-get -q -y install --no-install-recommends \
-            build-essential automake autoconf libtool pkg-config \
+            build-essential automake autoconf libtool pkg-config cmake \
             icu-devtools libicu-dev libxml2-dev uuid-dev libsnmp-dev \
             libfuse-dev fuse3 libfuse3-dev attr
           sudo install -m 755 tests/docker/icu-config /usr/local/bin/icu-config
 
-      - name: Build
+      - name: Build (autotools)
+        if: matrix.build == 'autotools'
         run: |
           ./autogen.sh
-          ./configure --enable-icu-6x ${{ matrix.configure_flags }}
+          ./configure --enable-icu-6x ${{ matrix.fuse == 'fuse2' && '--with-fuse2' || '' }}
           make -j"$(nproc)"
 
-      - name: Run tests
+      - name: Run tests (autotools)
+        if: matrix.build == 'autotools'
         run: make check VERBOSE=1 || { cat tests/test-suite.log; exit 1; }
+
+      - name: Build (cmake)
+        if: matrix.build == 'cmake'
+        run: |
+          cmake -S . -B build -DLTFS_WITH_FUSE2=${{ matrix.fuse == 'fuse2' && 'ON' || 'OFF' }}
+          cmake --build build -j"$(nproc)"
+
+      - name: Run tests (cmake)
+        if: matrix.build == 'cmake'
+        run: ctest --test-dir build --output-on-failure
