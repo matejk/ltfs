@@ -40,6 +40,7 @@ include(CheckTypeSize)
 include(CheckCCompilerFlag)
 
 # --- Options (mirror the autotools --enable/--with switches) ------------------
+set(LTFS_WITH_FUSE2 "AUTO" CACHE STRING "Use libfuse 2 instead of 3 (ON/OFF/AUTO)")
 option(LTFS_ENABLE_SNMP "Build with SNMP support" ON)
 option(LTFS_ENABLE_LINTAPE "Build the IBM lin_tape backend (Linux only)" OFF)
 option(LTFS_SUPPORT_BUGGY_IFS "Work around buggy tape interfaces" OFF)
@@ -75,7 +76,45 @@ set(DEFAULT_KMI "none" CACHE STRING "Default key manager plugin")
 # canonical interface, wrapped as IMPORTED_TARGETs (PkgConfig::*).
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(FUSE REQUIRED IMPORTED_TARGET fuse>=2.6.0)
+# FUSE: prefer fuse3 on Linux (auto-fallback to fuse2); fuse2 elsewhere.
+set(LTFS_HAVE_FUSE3 OFF)
+if(LTFS_WITH_FUSE2 STREQUAL "ON")
+    pkg_check_modules(FUSE REQUIRED IMPORTED_TARGET fuse>=2.6.0)
+elseif(LTFS_WITH_FUSE2 STREQUAL "OFF")
+    pkg_check_modules(FUSE REQUIRED IMPORTED_TARGET fuse3>=3.4.0)
+    set(LTFS_HAVE_FUSE3 ON)
+else() # AUTO
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        pkg_check_modules(FUSE IMPORTED_TARGET fuse3>=3.4.0)
+        if(FUSE_FOUND)
+            set(LTFS_HAVE_FUSE3 ON)
+        else()
+            pkg_check_modules(FUSE REQUIRED IMPORTED_TARGET fuse>=2.6.0)
+        endif()
+    else()
+        pkg_check_modules(FUSE REQUIRED IMPORTED_TARGET fuse>=2.6.0)
+    endif()
+endif()
+if(LTFS_HAVE_FUSE3)
+    message(STATUS "LTFS: building against FUSE 3 (${FUSE_VERSION})")
+else()
+    message(STATUS "LTFS: building against FUSE 2 (${FUSE_VERSION})")
+endif()
+
+# struct fuse_file_info.parallel_direct_writes appeared in libfuse 3.15;
+# detect the member instead of relying on version numbers. It is a bitfield,
+# so sizeof-based probes (check_struct_has_member) cannot be used.
+if(LTFS_HAVE_FUSE3)
+    include(CheckCSourceCompiles)
+    set(CMAKE_REQUIRED_INCLUDES ${FUSE_INCLUDE_DIRS})
+    set(CMAKE_REQUIRED_DEFINITIONS -DFUSE_USE_VERSION=31)
+    check_c_source_compiles("
+#include <fuse.h>
+int main(void) { struct fuse_file_info fi = {0}; fi.parallel_direct_writes = 1; return 0; }"
+        HAVE_FUSE_PARALLEL_DIRECT_WRITES)
+    unset(CMAKE_REQUIRED_INCLUDES)
+    unset(CMAKE_REQUIRED_DEFINITIONS)
+endif()
 
 find_package(LibXml2 2.6.16 REQUIRED)
 
@@ -164,6 +203,9 @@ add_compile_definitions(
     LTFS_CONFIG_FILE="${CMAKE_INSTALL_FULL_SYSCONFDIR}/ltfs.conf"
     LTFS_BASE_DIR="${CMAKE_INSTALL_PREFIX}"
 )
+if(LTFS_HAVE_FUSE3)
+    add_compile_definitions(HAVE_FUSE3)
+endif()
 if(LTFS_ENABLE_SNMP)
     add_compile_definitions(ENABLE_SNMP)
 endif()
